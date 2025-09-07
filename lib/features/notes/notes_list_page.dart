@@ -1,12 +1,9 @@
 import 'dart:async';
-
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../di.dart';
 import '../../ui/responsive/responsive.dart';
 import 'bloc/notes_bloc.dart';
@@ -44,48 +41,21 @@ class _NotesScaffoldState extends State<_NotesScaffold> with SingleTickerProvide
 
   late final AnimationController _spinCtrl;
   SortMode _sort = SortMode.recent;
-  StreamSubscription<List<ConnectivityResult>>? _net;
-  bool _online = true;
 
   @override
   void initState() {
     super.initState();
     _spinCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1));
     _spinCtrl.repeat();
-    _initConnectivity();
   }
 
   @override
   void dispose() {
     _spinCtrl.stop();
     _spinCtrl.dispose();
-    _net?.cancel();
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
-  }
-
-
-  Future<void> _initConnectivity() async {
-    final initial = await Connectivity().checkConnectivity();
-    _online = initial.any((r) => r != ConnectivityResult.none);
-
-    _net = Connectivity().onConnectivityChanged.listen((results) {
-      final has = results.any((r) => r != ConnectivityResult.none);
-      if (!mounted) return;
-      final was = _online;
-      _online = has;
-
-      if (was && !has) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bağlantı yok — offline mod'), behavior: SnackBarBehavior.floating),
-        );
-      } else if (!was && has) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Tekrar online'), behavior: SnackBarBehavior.floating));
-      }
-    });
   }
 
   Future<void> _confirmLogout() async {
@@ -129,141 +99,148 @@ class _NotesScaffoldState extends State<_NotesScaffold> with SingleTickerProvide
     final crossAxisCount = isTablet ? 2 : 2;
     final padding = const EdgeInsets.symmetric(horizontal: 16);
 
-    return BlocBuilder<NotesBloc, NotesState>(
-      builder: (context, state) {
-        final q = _searchCtrl.text.trim().toLowerCase();
-        final items = _applyQuerySort(state.items, q);
+    return BlocListener<NotesBloc, NotesState>(
+      listenWhen: (prev, curr) => prev.online != curr.online,
+      listener: (context, state) {
+        final msg = state.online ? 'Tekrar online' : 'Bağlantı yok — offline mod';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+      },
+      child: BlocBuilder<NotesBloc, NotesState>(
+        builder: (context, state) {
+          final q = _searchCtrl.text.trim().toLowerCase();
+          final items = _applyQuerySort(state.items, q);
 
-        return Scaffold(
-          body: SafeArea(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: RefreshIndicator(
-                key: _refreshKey,
-                onRefresh: () async {
-                  context.read<NotesBloc>().add(const NotesSyncRequested());
-                  await Future.delayed(const Duration(milliseconds: 300));
-                },
-                child: CustomScrollView(
-                  controller: _scrollCtrl,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverAppBar(
-                      floating: true,
-                      snap: true,
-                      elevation: 0,
-                      toolbarHeight: 66,
-                      titleSpacing: 8,
-                      title: Row(
-                        children: [
-                          Icon(Icons.folder_rounded, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(width: 8),
-                          const Text('Notes', style: TextStyle(fontWeight: FontWeight.w700)),
-                          const Spacer(),
-                          if (state.syncing)
-                            RotationTransition(turns: _spinCtrl, child: const Icon(Icons.sync))
-                          else if (!state.online)
-                            const Icon(Icons.cloud_off, color: Colors.amber),
-                          const SizedBox(width: 8),
-                          PopupMenuButton<SortMode>(
-                            initialValue: _sort,
-                            onSelected: (v) => setState(() => _sort = v),
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: SortMode.recent, child: Text('Sort: Newest')),
-                              PopupMenuItem(value: SortMode.az, child: Text('Sort: A → Z')),
-                            ],
-                            tooltip: 'Sort',
-                            icon: const Icon(Icons.sort_rounded),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: 'Log out',
-                            icon: const Icon(Icons.logout_rounded),
-                            onPressed: _confirmLogout,
-                          ),
-                        ],
-                      ),
-                      bottom: PreferredSize(
-                        preferredSize: const Size.fromHeight(60),
-                        child: Padding(
-                          padding: padding.copyWith(bottom: 12),
-                          child: TextField(
-                            controller: _searchCtrl,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              hintText: 'Search notes…',
-                              prefixIcon: Icon(Icons.search),
+          return Scaffold(
+            body: SafeArea(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: RefreshIndicator(
+                  key: _refreshKey,
+                  onRefresh: () async {
+                    context.read<NotesBloc>().add(const NotesSyncRequested());
+                    await Future.delayed(const Duration(milliseconds: 300));
+                  },
+                  child: CustomScrollView(
+                    controller: _scrollCtrl,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverAppBar(
+                        floating: true,
+                        snap: true,
+                        elevation: 0,
+                        toolbarHeight: 66,
+                        titleSpacing: 8,
+                        title: Row(
+                          children: [
+                            Icon(Icons.folder_rounded, color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 8),
+                            const Text('Notes', style: TextStyle(fontWeight: FontWeight.w700)),
+                            const Spacer(),
+                            if (state.syncing)
+                              RotationTransition(turns: _spinCtrl, child: const Icon(Icons.sync))
+                            else if (!state.online)
+                              const Icon(Icons.cloud_off, color: Colors.amber),
+                            const SizedBox(width: 8),
+                            PopupMenuButton<SortMode>(
+                              initialValue: _sort,
+                              onSelected: (v) => setState(() => _sort = v),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(value: SortMode.recent, child: Text('Sort: Newest')),
+                                PopupMenuItem(value: SortMode.az, child: Text('Sort: A → Z')),
+                              ],
+                              tooltip: 'Sort',
+                              icon: const Icon(Icons.sort_rounded),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Log out',
+                              icon: const Icon(Icons.logout_rounded),
+                              onPressed: _confirmLogout,
+                            ),
+                          ],
+                        ),
+                        bottom: PreferredSize(
+                          preferredSize: const Size.fromHeight(60),
+                          child: Padding(
+                            padding: padding.copyWith(bottom: 12),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              onChanged: (_) => setState(() {}),
+                              decoration: const InputDecoration(
+                                hintText: 'Search notes…',
+                                prefixIcon: Icon(Icons.search),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
 
-                    if (state.loading)
-                      const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-                    else if (items.isEmpty)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.note_add_outlined, size: 48, color: Colors.grey),
-                              SizedBox(height: 8),
-                              Text('No notes yet', style: TextStyle(color: Colors.grey)),
-                            ],
+                      if (state.loading)
+                        const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+                      else if (items.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.note_add_outlined, size: 48, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text('No notes yet', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: padding.copyWith(top: 8, bottom: 96),
+                          sliver: SliverMasonryGrid.count(
+                            crossAxisCount: crossAxisCount,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childCount: items.length,
+                            itemBuilder: (_, i) {
+                              final n = items[i];
+                              return _NoteCardV2(
+                                note: n,
+                                onTap: () => context
+                                    .push(
+                                      '/note-form',
+                                      extra: {
+                                        'id': n.id,
+                                        'title': n.title,
+                                        'content': n.content,
+                                        'skin': ((n as dynamic).skin as String?) ?? 'plain',
+                                      },
+                                    )
+                                    .then((changed) {
+                                      if (changed == true && context.mounted) {
+                                        context.read<NotesBloc>().add(const NotesSyncRequested());
+                                      }
+                                    }),
+                                onDelete: () => _confirmDelete(context, n.id),
+                              );
+                            },
                           ),
                         ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: padding.copyWith(top: 8, bottom: 96),
-                        sliver: SliverMasonryGrid.count(
-                          crossAxisCount: crossAxisCount,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childCount: items.length,
-                          itemBuilder: (_, i) {
-                            final n = items[i];
-                            return _NoteCardV2(
-                              note: n,
-                              onTap: () => context
-                                  .push(
-                                    '/note-form',
-                                    extra: {
-                                      'id': n.id,
-                                      'title': n.title,
-                                      'content': n.content,
-                                      'skin': ((n as dynamic).skin as String?) ?? 'plain',
-                                    },
-                                  )
-                                  .then((changed) {
-                                    if (changed == true && context.mounted) {
-                                      context.read<NotesBloc>().add(const NotesSyncRequested());
-                                    }
-                                  }),
-                              onDelete: () => _confirmDelete(context, n.id),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          floatingActionButton: _AddFab(
-            onPressed: () {
-              context.push('/note-form').then((changed) {
-                if (changed == true && context.mounted) {
-                  context.read<NotesBloc>().add(const NotesSyncRequested());
-                }
-              });
-            },
-          ),
-        );
-      },
+            floatingActionButton: _AddFab(
+              onPressed: () {
+                context.push('/note-form').then((changed) {
+                  if (changed == true && context.mounted) {
+                    context.read<NotesBloc>().add(const NotesSyncRequested());
+                  }
+                });
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 

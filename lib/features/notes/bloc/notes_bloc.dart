@@ -15,22 +15,30 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
   }
 
   final NotesRepository repo;
-  StreamSubscription<List<ConnectivityResult>>? _net;
+  StreamSubscription? _net;
+
+  bool _hasConn(dynamic r) {
+    if (r is ConnectivityResult) return r != ConnectivityResult.none;
+    if (r is List<ConnectivityResult>) return r.any((x) => x != ConnectivityResult.none);
+    return false;
+  }
 
   Future<void> _onStarted(NotesStarted event, Emitter<NotesState> emit) async {
-    await repo.sync();
-
     final initial = await Connectivity().checkConnectivity();
-    final initialOnline = initial.any((r) => r != ConnectivityResult.none);
-    emit(state.copyWith(online: initialOnline));
+    emit(state.copyWith(online: _hasConn(initial)));
 
     _net = Connectivity().onConnectivityChanged.listen((results) {
-      final hasConn = results.any((r) => r != ConnectivityResult.none);
+      final hasConn = _hasConn(results);
       add(NotesConnectivityChanged(hasConn));
       if (hasConn) {
         add(const NotesSyncRequested(fromConnectivity: true));
       }
     });
+
+    try {
+      await repo.sync();
+    } catch (e) {
+    }
 
     await emit.forEach<List<NotesTableData>>(
       repo.watchNotes(),
@@ -49,6 +57,8 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
         emit(state.copyWith(syncing: true));
       }
       await repo.sync();
+    } catch (e) {
+
     } finally {
       emit(state.copyWith(
         syncing: false,
@@ -58,7 +68,11 @@ class NotesBloc extends Bloc<NotesEvent, NotesState> {
   }
 
   Future<void> _onDelete(NotesDeleted event, Emitter<NotesState> emit) async {
-    await repo.delete(event.id);
+    try {
+      await repo.delete(event.id);
+      if (state.online) add(const NotesSyncRequested(silent: true));
+    } catch (e) {
+    }
   }
 
   @override

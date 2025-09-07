@@ -53,6 +53,11 @@ class ApiClient {
         case 'POST':
           resp = await _http.post(uri, headers: headers, body: encoded).timeout(const Duration(seconds: 30));
           break;
+        case 'PUT':
+          resp = await _http
+              .put(uri, headers: headers, body: encoded)
+              .timeout(const Duration(seconds: 30));
+          break;
         case 'DELETE':
           resp = await _http.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
           break;
@@ -102,6 +107,9 @@ class ApiClient {
   Future<Map<String, dynamic>> getJson(String path) =>
       _requestJson('GET', path);
 
+  Future<Map<String, dynamic>> putJson(String path, Map<String, dynamic> body) =>
+      _requestJson('PUT', path, body: body);
+
   Future<Map<String, dynamic>> deleteJson(String path) =>
       _requestJson('DELETE', path);
 
@@ -129,7 +137,7 @@ class ApiClient {
     required String kind,
     required String skin,
   }) async {
-    return await postJson('/notes/$id', {
+    return await putJson('/notes/$id', {
       'title': title,
       'content': content,
       'kind': kind,
