@@ -34,54 +34,89 @@ class _LoginPageState extends State<LoginPage> {
             }
           },
           child: Scaffold(
-            body: SafeArea(
-              child: LayoutBuilder(
-                builder: (ctx, constraints) {
-                  final isWide = Responsive.isTablet(ctx) || Responsive.isDesktop(ctx);
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xfff7f7f7), Color(0xffe3f2fd)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: SafeArea(
+                child: LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final isWide = Responsive.isTablet(ctx) || Responsive.isDesktop(ctx);
 
-                  final form = ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(ctx)),
-                    child: Card(
-                      elevation: 1,
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: Responsive.pagePadding(ctx),
-                        child: _LoginForm(emailCtrl: emailCtrl, passCtrl: passCtrl),
+                    final form = ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: Responsive.maxContentWidth(ctx)),
+                      child: Card(
+                        elevation: 4,
+                        margin: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: Responsive.pagePadding(ctx),
+                          child: _LoginForm(emailCtrl: emailCtrl, passCtrl: passCtrl),
+                        ),
                       ),
-                    ),
-                  );
+                    );
 
-                  return Center(
-                    child: SingleChildScrollView(
-                      padding: Responsive.pagePadding(ctx),
-                      child: isWide
-                          ? Row(
+                    return Center(
+                      child: SingleChildScrollView(
+                        padding: Responsive.pagePadding(ctx),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Üst kısım logo + başlık
+                            Column(
+                              children: [
+                                Icon(Icons.note_alt_outlined, size: 72, color: Colors.blue.shade700),
+                                const SizedBox(height: 12),
+                                Text('Connectinno Notes',
+                                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey.shade800,
+                                    )),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Take notes, organize ideas, and sync anywhere.',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                            ),
+
+                            // Form
+                            isWide ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Flexible(child: form),
+                                const SizedBox(width: 24),
                                 Flexible(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 24),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Connectinno Notes', style: Theme.of(context).textTheme.headlineMedium),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Login with your account and sync your notes.',
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                      ],
-                                    ),
+                                  child: Image.asset(
+                                    "assets/images/login_illustration.png",
+                                    height: 220,
                                   ),
                                 ),
-                                Flexible(child: form),
                               ],
-                            )
-                          : form,
-                    ),
-                  );
-                },
+                            ) : form,
+
+                            const SizedBox(height: 32),
+
+                            // Alt kısım info
+                            Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                '© ${DateTime.now().year} Connectinno',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -103,7 +138,7 @@ class _LoginForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Login', style: Theme.of(context).textTheme.headlineSmall),
+        Center(child: Text('Login', style: Theme.of(context).textTheme.headlineSmall)),
         const SizedBox(height: 16),
 
         TextField(
@@ -128,28 +163,24 @@ class _LoginForm extends StatelessWidget {
 
         state.loading
             ? const Center(
-                child: Padding(padding: EdgeInsets.symmetric(vertical: 12), child: CircularProgressIndicator()),
-              )
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: CircularProgressIndicator(),
+          ),
+        )
             : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => context.read<AuthCubit>().login(emailCtrl.text.trim(), passCtrl.text.trim()),
-                    child: const Text('Login'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: () => context.read<AuthCubit>().register(emailCtrl.text.trim(), passCtrl.text.trim()),
-                    child: const Text('Register'),
-                  ),
-                ],
-              ),
-
-        // Alt bilgi
-        const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.center,
-          child: Text('© ${DateTime.now().year} Connectinno', style: Theme.of(context).textTheme.bodySmall),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton(
+              onPressed: () => context.read<AuthCubit>().login(emailCtrl.text.trim(), passCtrl.text.trim()),
+              child: const Text('Login'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => context.read<AuthCubit>().register(emailCtrl.text.trim(), passCtrl.text.trim()),
+              child: const Text('Register'),
+            ),
+          ],
         ),
       ],
     );
